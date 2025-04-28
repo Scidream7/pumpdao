@@ -1,6 +1,8 @@
+import asyncio
 import random
-
+from faker import Faker
 import requests
+from curl_cffi.requests import AsyncSession
 from eth_account.messages import encode_defunct
 from web3 import Web3
 
@@ -12,7 +14,7 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(
 def write_line(line):
     with open('fail.txt', 'a') as file:
         file.write(line+'\n')
-def bind_sol(evm_address,evm_key,sol,proxy):
+async def bind_sol(evm_address,evm_key,sol,proxy):
     http_provider = 'https://unichain-rpc.publicnode.com'
     web3 = Web3(Web3.HTTPProvider(http_provider))
 
@@ -32,7 +34,12 @@ def bind_sol(evm_address,evm_key,sol,proxy):
         'http': proxy
     }
     try:
-        res = requests.post(url, json=data,proxies=proxy)
+        header = {
+
+            'user-agent': Faker().chrome(),
+        }
+        http = AsyncSession(timeout=120, headers=header,proxies = proxy,impersonate="chrome120")
+        res = await http.post(url, json=data,proxies=proxy)
         print(res.text)
         if res.json()['code'] == 0 or res.json()['code']== 10010 :
             logging.info(f'绑定成功')
@@ -48,7 +55,7 @@ def bind_sol(evm_address,evm_key,sol,proxy):
         write_line(content)
         logging.info(e)
 
-def handle():
+async def handle():
     evm_lines = open('evm_wallets.txt','r',encoding='utf-8').readlines()
     sol = open('sol_address.txt','r',encoding='utf-8').readlines()
     nums = len(evm_lines)
@@ -77,7 +84,7 @@ def handle():
             proxy = random.choice(proxy_list)
         else:
             proxy = None
-        bind_sol(evm_address_list[i],evm_key_list[i],sol_address_list[i],proxy)
+        await bind_sol(evm_address_list[i], evm_key_list[i], sol_address_list[i], proxy)
 
     while True:
         evm_address_list = []
@@ -106,7 +113,7 @@ def handle():
                 proxy = random.choice(proxy_list)
             else:
                 proxy = None
-            bind_sol(evm_address_list[i], evm_key_list[i], sol_address_list[i], proxy)
+            await bind_sol(evm_address_list[i], evm_key_list[i], sol_address_list[i], proxy)
 
 if __name__ == '__main__':
-    handle()
+    asyncio.run(handle())
